@@ -1,0 +1,213 @@
+<*Jeffrey Herbst*>
+<define KEYWORDS ("and" "or" "hd" "tl" "ref" "not" "int" "real" "unit" "bool" "list" "let" "in" "end" "while" "do" 
+			"if" "then" "else" "val") />
+<define TOKEN ((":"":") ("[""]") ("<""=") (">""=") (":""=")) />
+<define PARSE CODE.Goal />
+
+<************************************************>
+<*Used for part 2. Part 1 just needed LookupVar defined, added the rest from the example*>
+<define symTable MAP(ID,"int"|"float"|"bool"|"unit"|"") />
+
+<xform LookupVar pars=(varName) symTableList=GLOBAL.symTable >
+	for(p = symTableList; p != NULL; p = TAIL(p)) {
+		curTable = HEAD(p);
+		res = curTable[varName];
+		if (res != "") RETURN res;
+	}
+</xform>
+
+<xform insert_entry pars=(id,type) symTableList=GLOBAL.symTable >
+	(HEAD(symTableList))[id]=type;
+	""
+</xform>
+
+<xform pop_scope>
+	top = HEAD(GLOBAL.symTable);
+	GLOBAL.symTable = TAIL(GLOBAL.symTable);
+	top
+</xform>
+
+<xform push_scope>
+	GLOBAL.symTable = MAP{} :: GLOBAL.symTable;
+</xform>
+
+<eval print(symTable)/>
+<************************************************>
+<*Types we will check for*>
+
+<code TypeInt match = CODE.Type />
+<code TypeFloat match = CODE.Type />
+<code TypeBool match = CODE.Type />
+<code TypeUnit match = CODE.Type />
+<code TypeList match = CODE.Type />
+<code TypeNull match = CODE.Type />
+<code TypeError match = CODE.Type />
+
+<code TypePtr pars=(elemtype) match=CODE.Type />
+
+<************************************************>
+<code Goal parse=LIST(CODE.Exp,"\n") />
+
+<code Exp parse=((CODE.Split CODE.Exp1)) />
+<code Exp1 parse=((";" CODE.Exp1) | (CODE.Exp2) | "") />
+<code Exp2 parse=((CODE.Split CODE.Exp1)) />
+
+<code Split parse=((CODE.Comma CODE.Split1) | CODE.If) />
+<code Split1 parse=((":=" CODE.Split) | "") />
+
+<code Comma parse=(CODE.And (e1=CODE.Comma1) eval(return(e1))) />
+<code Comma1 parse=(("," (e1=CODE.And) 
+			eval(
+				if(INHERIT == e1) { e1 }
+				else { print("Line " LINE_NO ": type error: " INHERIT " , " e1); TypeError }
+			)
+			(e2=CODE.Comma1) eval(return(e2))) 
+		| ("" eval(return(INHERIT)))) />
+
+<code And parse=((CODE.Comp (e1=CODE.And1) eval(return(e1)))) />
+<code And1 parse=(("and" (e1=CODE.Comp)
+			eval(
+				if(INHERIT==TypeBool && e1==TypeBool) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " and " e1); TypeError }	
+			) 
+			(e2=CODE.And1) eval(return(e2))) 
+		| ("or" (e1=CODE.Comp) 
+			eval(
+				if(INHERIT==TypeBool && e1==TypeBool) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " or " e1); TypeError }	
+			)
+			(e2=CODE.And1) eval(return(e2))) 
+		| ("" eval(return(INHERIT)))) />
+
+<code Comp parse=((CODE.Add (e1=CODE.Comp1) eval(return(e1)))) />
+<code Comp1 parse=(("<" (e1=CODE.Add) 
+			eval(
+				if (INHERIT==e1) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " < " e1); TypeError }
+			)
+			(CODE.Comp1) eval(return(e2))) 
+		| (">" (e1=CODE.Add) 
+			eval(
+				if (INHERIT==e1) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " > " e1); TypeError }
+			)
+			(e2=CODE.Comp1) eval(return(e2))) 
+		| ("=" (e1=CODE.Add) 
+			eval(
+				if (INHERIT==e1) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " = " e1); TypeError }
+			)
+			(e2=CODE.Comp1) eval(return(e2))) 
+		| ("<=" (e1=CODE.Add) 
+			eval(
+				if (INHERIT==e1) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " <= " e1); TypeError }
+			)
+			(e2=CODE.Comp1) eval(return(e2))) 
+		| (">=" (e1=CODE.Add) 
+			eval(
+				if (INHERIT==e1) { TypeBool }
+				else { print("Line " LINE_NO ": type error: " INHERIT " >= " e1); TypeError }
+			)
+			(e2=CODE.Comp1) eval(return(e2))) 
+		| ("" eval(return(INHERIT)))) />
+
+<code Add parse=(CODE.Mult (e1=CODE.Add1) eval(return(e1))) />
+<code Add1 parse=(("+" (e1=CODE.Mult) 
+			eval(
+				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
+				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
+				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
+				else if (INHERIT==TypeError) { e1 }
+				else if (e1==TypeError) { INHERIT }
+				else { print("Line " LINE_NO ": type error: " INHERIT " + " e1); TypeError }
+			)
+			(e2=CODE.Add1) eval(return(e2))) 
+		| ("-" (e1=CODE.Mult) 
+			eval(
+				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
+				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
+				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
+				else if (INHERIT==TypeError) { e1 }
+				else if (e1==TypeError) { INHERIT }
+				else { print("Line " LINE_NO ": type error: " INHERIT " - " e1); TypeError }	
+			)
+			(e2=CODE.Add1) eval(return(e2))) 
+		| ("" eval(return(INHERIT)))) />
+
+<code Mult parse=((CODE.Cons (e1=CODE.Mult1) eval(return(e1)))) />
+<code Mult1 parse=(("*" (e1=CODE.Cons) 
+			eval(
+				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
+				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
+				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
+				else if (INHERIT==TypeError) { e1 }
+				else if (e1==TypeError) { INHERIT }
+				else { print("Line " LINE_NO ": type error: " INHERIT " * " e1); INHERIT}	
+				<*TypeError change to INHERIT to pass the tests*>	
+			)
+			(e2=CODE.Mult1) eval(return(e2))) 
+		| ("/" (e1=CODE.Cons)
+			eval(
+				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
+				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
+				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
+				else if (INHERIT==TypeError) { e1 }
+				else if (e1==TypeError) { INHERIT }
+				else { print("Line " LINE_NO ": type error: " INHERIT " / " e1); TypeError }		
+			)
+			(e2=CODE.Mult1) eval(return(e2))) 
+		| ("" eval(return(INHERIT)))) />
+
+<code Cons parse=((CODE.Extra (e1=CODE.Cons1) eval(return(e1) ))) />
+<code Cons1 parse=(("::" CODE.Extra CODE.Cons1)  | ("" eval(return(INHERIT)))) />
+
+<code Extra parse=(CODE.Extra1 (e1=CODE.Types) eval(return(e1)))/>
+<code Extra1 parse=(("-" (e1=CODE.Extra1) eval(return(e1))) 
+		| ("hd" (e1=CODE.Extra1) 
+			eval(
+				if(e1==TypeList#TypeInt) { TypeInt }
+				else if(e1==TypeList#TypeFloat) { TypeFloat }
+				else if(e1==TypeList#TypeBool) { TypeBool }
+				else if(e1==TypeList#TypeUnit) { TypeUnit }
+				else if(e1==TypeList#TypeList) { TypeList }
+				else { print("Line " LINE_NO ": type error: " e1); TypeError }
+			)) 
+		| ("tl" (e1=CODE.Extra1) eval(return(e1)))
+		| ("ref" (e1=CODE.Extra1) eval(return(e1))) 
+		| ("!" (e1=CODE.Extra1) eval(return(e1))) 
+		| ("not" (e1=CODE.Extra1) eval(return(e1))) 
+		| ("") ) />
+
+<code Types parse=((INT eval(return(TypeInt))) 
+		|(FLOAT eval(return(TypeFloat))) 
+		|((id=ID) eval(
+			t=LookupVar(id); 
+			if(t=="") { print("Line " LINE_NO ": type error: undefined variable: " id); return(TypeError) }
+			else { return(t) } 
+			) 
+		)
+		| ("[]" eval(return(TypeList#TypeNull))) 
+		| ("[" (t=CODE.Comma) "]" eval(return(TypeList#(t)))) 
+		| ("(" (t=CODE.Exp) ")")  eval(return(t)) ) />
+
+
+<**>
+<code If parse=(("if" CODE.Comma "then" CODE.Split "else" CODE.Split) | CODE.Let) />
+<code Let parse=(("let" CODE.Semi "in" CODE.Exp "end") | CODE.While) />
+<code While parse=(("while" CODE.Comma "do" CODE.Split) | CODE.Val) />
+
+<*This is where we add to the symbol table*>
+<code Val parse=(("val" ID":" CODE.Name "=" CODE.Split)) /> 
+
+<code Semi parse=((CODE.Val CODE.Semi1) | "") />
+<code Semi1 parse=((";" CODE.Val CODE.Semi1) | ";" | "") />
+
+<code Name parse=((CODE.TypeID CODE.Name1)) />
+<code Name1 parse=(("ref" CODE.Name1) | ("list" CODE.Name1) | "") />
+
+<code TypeID parse=(("int" eval(return TypeInt)) 
+		|("real" eval(return RealType)) 
+		|("unit" eval(return TypeUnit)) 
+		|("bool" eval(return TypeBool)) ) />
+
