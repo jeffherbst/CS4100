@@ -40,6 +40,7 @@
 <code TypeBool match = CODE.Type />
 <code TypeUnit match = CODE.Type />
 <code TypeList match = CODE.Type />
+<code TypeRef match = CODE.Type />
 <code TypeNull match = CODE.Type />
 <code TypeError match = CODE.Type />
 
