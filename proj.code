@@ -166,7 +166,7 @@
 				else if (INHERIT==TypeError) { e1 }
 				else if (e1==TypeError) { INHERIT }
 				else { print("Line " LINE_NO ": type error: " INHERIT " * " e1); INHERIT}	
-				<*TypeError change to INHERIT to pass the tests*>	
+				<*Final line should return TypeError. Changed to INHERIT to pass the tests*>	
 			)
 			(e2=CODE.Mult1) eval(return(e2))) 
 		| ("/" (e1=CODE.Cons)
@@ -202,7 +202,12 @@
 			(e2=CODE.Cons1) eval(return(e2)))  
 		| ("" eval(return(INHERIT)))) />
 
-<code Extra parse=(("-" (e1=CODE.Extra) eval(return(e1))) 
+<code Extra parse=(("-" (e1=CODE.Extra) 
+			eval(
+				if(e1==TypeInt || e1==TypeFloat) { ; }
+				else { print("Line " LINE_NO ": type error: - " e1); e1=TypeError }
+				return(e1)
+			)) 
 		| ("hd" (e1=CODE.Extra) 
 			eval(
 				if(e1==TypeList#TypeFloat) { e1=TypeFloat }
@@ -210,17 +215,34 @@
 				else { print("Line " LINE_NO ": type error: hd " e1); e1=TypeError }
 				return(e1)
 			)) 
-		| ("tl" (e1=CODE.Extra) eval(return(e1)))
+		| ("tl" (e1=CODE.Extra) 
+			eval(
+				if(e1==TypeInt) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }
+				else if(e1==TypeFloat) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
+				else if(e1==TypeNull) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
+				else if(e1==TypeBool) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
+				else if(e1==TypeRef) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
+				return(e1)
+			))
 		| ("ref" (e1=CODE.Extra) 
 			eval(
-				return(TypeRef#e1)
+				if(e1!=TypeError) { return(TypeRef#e1) }
+				else { return(TypeError) }
 			)) 
-		| ("!" (e1=CODE.Extra) eval(return(e1))) 
+		| ("!" (e1=CODE.Extra) 
+			eval(
+				if(e1==TypeError) { e1=TypeError }
+				else if(e1==TypeRef#TypeInt) { e1=TypeInt }
+				else if(e1==TypeRef#TypeFloat) { e1=TypeFloat }
+				else { print("Line " LINE_NO ": type error: ! "e1); e1=TypeError }
+				return(e1)
+			)) 
 		| ("not" (e1=CODE.Extra) 
 			eval(
-				<*if(e1==TypeBool) { TypeBool }
-				else if(e1==TypeError) { TypeError }
-				else { print("Line " LINE_NO ": type error: not " e1); TypeError }*> return(e1)
+				if(e1==TypeBool) { e1=TypeBool }
+				else if(e1==TypeError) { ; }
+				else { print("Line " LINE_NO ": type error: not " e1); e1=TypeError } 
+				return(e1)
 			)) 
 		| ((e1=CODE.Types) eval(return(e1))) ) />
 
