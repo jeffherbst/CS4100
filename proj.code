@@ -182,7 +182,25 @@
 		| ("" eval(return(INHERIT)))) />
 
 <code Cons parse=((CODE.Extra (e1=CODE.Cons1) eval(return(e1) ))) />
-<code Cons1 parse=(("::" CODE.Extra CODE.Cons1)  | ("" eval(return(INHERIT)))) />
+<code Cons1 parse=(("::" (e1=CODE.Extra)
+			eval(
+				holder=TypeNull;
+
+				if(e1==TypeList#TypeInt) { holder=TypeInt }
+				else if(e1==TypeList#TypeFloat) { holder=TypeFloat }
+				else if(e1==TypeError || e1==TypeList#TypeError) { holder=TypeError }
+
+				if(INHERIT==TypeInt && holder==TypeInt) { fin=TypeList#TypeInt }
+				else if(INHERIT==TypeFloat && holder==TypeFloat)  { fin=TypeList#TypeInt }
+				else if(INHERIT==TypeError && holder==TypeError) { fin=TypeError }
+				else if(INHERIT==TypeError) { fin=TypeList#holder }
+				else if(holder==TypeError) { fin=INHERIT }
+				else { print("Line " LINE_NO ": type error: " INHERIT " :: " e1); fin = TypeError }
+
+				return(fin)
+			)
+			(e2=CODE.Cons1) eval(return(e2)))  
+		| ("" eval(return(INHERIT)))) />
 
 <code Extra parse=(("-" (e1=CODE.Extra) eval(return(e1))) 
 		| ("hd" (e1=CODE.Extra) 
@@ -193,9 +211,17 @@
 				return(e1)
 			)) 
 		| ("tl" (e1=CODE.Extra) eval(return(e1)))
-		| ("ref" (e1=CODE.Extra) eval(return(e1))) 
+		| ("ref" (e1=CODE.Extra) 
+			eval(
+				return(TypeRef#e1)
+			)) 
 		| ("!" (e1=CODE.Extra) eval(return(e1))) 
-		| ("not" (e1=CODE.Extra) eval(return(e1))) 
+		| ("not" (e1=CODE.Extra) 
+			eval(
+				<*if(e1==TypeBool) { TypeBool }
+				else if(e1==TypeError) { TypeError }
+				else { print("Line " LINE_NO ": type error: not " e1); TypeError }*> return(e1)
+			)) 
 		| ((e1=CODE.Types) eval(return(e1))) ) />
 
 <code Types parse=((INT eval(return(TypeInt))) 
