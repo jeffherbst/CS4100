@@ -41,6 +41,7 @@
 <code TypeUnit match = CODE.Type />
 <code TypeList match = CODE.Type />
 <code TypeRef match = CODE.Type />
+<code TypeReal match = CODE.Type />
 <code TypeNull match = CODE.Type />
 <code TypeError match = CODE.Type />
 
@@ -53,7 +54,7 @@
 <code Exp1 parse=((";" CODE.Exp1) | (CODE.Exp2) | ("" eval(return(INHERIT)))) />
 <code Exp2 parse=((CODE.Split CODE.Exp1)) />
 
-<code Split parse=((CODE.Comma (e1=CODE.Split1) eval(return(e1))) | CODE.If) />
+<code Split parse=((CODE.Comma (e1=CODE.Split1) eval(return(e1))) | ((e1=CODE.If) eval(return(e1)))) />
 <code Split1 parse=((":=" CODE.Split) | ("" eval(return(INHERIT)))) />
 
 <code Comma parse=(CODE.And (e1=CODE.Comma1) eval(return(e1))) />
@@ -260,21 +261,44 @@
 
 
 <**>
-<code If parse=(("if" CODE.Comma "then" CODE.Split "else" CODE.Split) | CODE.Let) />
+<code If parse=(("if" (e1=CODE.Comma) "then" (e2=CODE.Split) "else" (e3=CODE.Split)
+		eval( 
+			if(e1!=TypeBool) { print("Line " LINE_NO ": type error: if " e1) }
+			
+			if(e2!=e3) { print("Line " LINE_NO ": type error: " e2 " else " e3) }
+
+			return(TypeUnit)
+		)) 
+		| ((e1=CODE.Let) eval(return(e1)))) />
 <code Let parse=(("let" CODE.Semi "in" CODE.Exp "end") | CODE.While) />
 <code While parse=(("while" CODE.Comma "do" CODE.Split) | CODE.Val) />
 
 <*This is where we add to the symbol table*>
-<code Val parse=(("val" ID":" CODE.Name "=" CODE.Split)) /> 
+<code Val parse=(("val" (id=ID) ":" (type=CODE.Name) "=" (e1=CODE.Split) 
+			eval(
+				if(type==TypeList && e1==TypeList#TypeNull) { ; }
+				else if(type==(TypeRef#(TypeList#TypeReal)) && (e1==TypeRef#(TypeList#TypeInt) 
+					|| e1==TypeRef#(TypeList#TypeFloat))) { ; }
+				else if(type==e1) { ; }
+				else { print("Line " LINE_NO ": type error: val " id ":" type " = " e1); type=TypeError }
+				
+				t=LookupVar(id);
+				if(t!="") { print("Line " LINE_NO ": type error: variable already defined: " id) }
+				else { insert_entry(id,type) }
+
+				return(TypeUnit)
+			))) /> 
 
 <code Semi parse=((CODE.Val CODE.Semi1) | "") />
 <code Semi1 parse=((";" CODE.Val CODE.Semi1) | ";" | "") />
 
-<code Name parse=((CODE.TypeID CODE.Name1)) />
-<code Name1 parse=(("ref" CODE.Name1) | ("list" CODE.Name1) | "") />
+<code Name parse=(CODE.TypeID (e1=CODE.Name1) eval(return(e1))) />
+<code Name1 parse=(("ref" (e1=CODE.Name1) eval(return((TypeRef#(INHERIT))))) 
+		| ("list" (e1=CODE.Name1) eval(return((TypeList#(INHERIT))))) 
+		| ("" eval(return(INHERIT)))) />
 
 <code TypeID parse=(("int" eval(return TypeInt)) 
-		|("real" eval(return RealType)) 
+		|("real" eval(return TypeReal)) 
 		|("unit" eval(return TypeUnit)) 
 		|("bool" eval(return TypeBool)) ) />
 
