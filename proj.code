@@ -35,32 +35,53 @@
 <************************************************>
 <*Types we will check for*>
 
-<code TypeInt match = CODE.Type />
-<code TypeFloat match = CODE.Type />
-<code TypeBool match = CODE.Type />
-<code TypeUnit match = CODE.Type />
-<code TypeList match = CODE.Type />
-<code TypeRef match = CODE.Type />
-<code TypeNull match = CODE.Type />
-<code TypeError match = CODE.Type />
+<code TypeInt match = CODE.Type > int </code>
+<code TypeFloat match = CODE.Type > float </code>
+<code TypeBool match = CODE.Type > bool </code>
+<code TypeUnit match = CODE.Type > unit </code>
+<code TypeList match = CODE.Type > list </code>
+<code TypeRef match = CODE.Type > ref </code>
+<code TypeNull match = CODE.Type > null </code>
+<code TypeError match = CODE.Type > TYPE_ERROR </code>
 
-<code TypePtr pars=(elemtype) match=CODE.Type />
+<code TypePtr pars=(elemtype) match=CODE.Type > [@elemtype@] </code>
+
+<code Type parse=(("int" eval(return TypeInt))
+	|("float" eval(return TypeFloat))
+	|("[" (t=type) "]" eval(return(TypePtr#(t)))))/>
 
 <************************************************>
-<code Goal parse=LIST(CODE.Exp,"\n") />
 
-<code Exp parse=(((e1=CODE.Split) CODE.Exp1) eval(return(e1))) />
-<code Exp1 parse=((";" CODE.Exp1) | (CODE.Exp2) | ("" eval(return(INHERIT)))) />
-<code Exp2 parse=((CODE.Split CODE.Exp1)) />
+<code ATTR pars=(exp, type)/>
 
-<code Split parse=((CODE.Comma (e1=CODE.Split1) eval(return(e1))) | CODE.If) />
-<code Split1 parse=((":=" CODE.Split) | ("" eval(return(INHERIT)))) />
+
+<code Listop pars=(op, opd1, opd2, t) match=CODE.Comma> @"new list<"t">("opd1","opd2")"@ </code>
+<code List2op pars=(op, opd1, opd2, t) match=CODE.Comma> @"new list<"t">("opd1", new list<"t">("opd2",0))"@  </code>
+<code List4op pars=(op, opd1, opd2, opd3, opd4, opd5, t) match=CODE.Comma> 
+@"newlist<"t">("opd1", new list<"t">("opd2", new list<"t">("opd3", new list<"t">("opd4", new list<"t">("opd5", 0)))))"@
+</code>
+<code Bop pars=(op, opd1, opd2) match=CODE.Comma> @opd1 op opd2@ </code>
+<code Uop pars=(op, opd) match=CODE.Comma> @op opd@ </code>
+<code Perenop pars=(opd) match=CODE.Comma> @"("opd")"@ </code>
+<code Refop pars=(op, opd) match=CODE.Comma> @opd@ </code>
+
+<************************************************>
+
+<code Goal pars=(program:LIST(CODE.ExpStmt, "\n"))>
+@program@
+</code>
+
+<code ExpStmt pars=(exp : CODE.Comma, type)
+	parse=(exp ";" eval(return(ExpStmt#(exp[ATTR.exp],exp[ATTR.type]))))>
+	@exp@;
+</code>
 
 <code Comma parse=(CODE.And (e1=CODE.Comma1) eval(return(e1))) />
 <code Comma1 parse=(("," (e1=CODE.And) 
 			eval(
-				if(INHERIT == e1) { e1 }
-				else { print("Line " LINE_NO ": type error: " INHERIT " , " e1); TypeError }
+				if(INHERIT[ATTR.type] == e1) { t = e1; }
+				else { print("Line " LINE_NO ": type error: " INHERIT " , " e1); t=CODE.TypeError; }
+				ATTR#(Bop#(",", INHERIT[ATTR.exp], e1),t)
 			)
 			(e2=CODE.Comma1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -137,22 +158,24 @@
 <code Add parse=(CODE.Mult (e1=CODE.Add1) eval(return(e1))) />
 <code Add1 parse=(("+" (e1=CODE.Mult) 
 			eval(
-				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
-				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " + " e1); TypeError }
+				if (INHERIT[ATTR.type]==TypeInt && e1[ATTR.type]==TypeInt) { t = CODE.TypeInt }
+				else if (INHERIT[ATTR.type]==TypeFloat && e1[ATTR.type]==TypeFloat) { t=CODE.TypeFloat }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t = e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " + " e1); t = CODE.TypeError }
+				ATTR#(Bop#("+", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Add1) eval(return(e2))) 
 		| ("-" (e1=CODE.Mult) 
 			eval(
-				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
-				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " - " e1); TypeError }	
+				if (INHERIT[ATTR.type]==TypeInt && e1[ATTR.type]==TypeInt) { t=CODE.TypeInt }
+				else if (INHERIT[ATTR.type]==TypeFloat && e1[ATTR.type]==TypeFloat) { t=CODE.TypeFloat }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " - " e1); t=CODE.TypeError }
+				ATTR#(Bop#("-", INHERIT[ATTR.exp], e1[ATTR.exp]),t)	
 			)
 			(e2=CODE.Add1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -160,23 +183,24 @@
 <code Mult parse=((CODE.Cons (e1=CODE.Mult1) eval(return(e1)))) />
 <code Mult1 parse=(("*" (e1=CODE.Cons) 
 			eval(
-				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
-				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " * " e1); INHERIT}	
-				<*Final line should return TypeError. Changed to INHERIT to pass the tests*>	
+				if (INHERIT[ATTR.type]==TypeInt && e1[ATTR.type]==TypeInt) { t=CODE.TypeInt }
+				else if (INHERIT[ATTR.type]==TypeFloat && e1[ATTR.type]==TypeFloat) { t=CODE.TypeFloat }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t = CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " * " e1); t=CODE.TypeError}	
+				ATTR#(Bop#("*", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Mult1) eval(return(e2))) 
 		| ("/" (e1=CODE.Cons)
 			eval(
-				if (INHERIT==TypeInt && e1==TypeInt) { TypeInt }
-				else if (INHERIT==TypeFloat && e1==TypeFloat) { TypeFloat }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " / " e1); TypeError }		
+				if (INHERIT[ATTR.type]==TypeInt && e1[ATTR.type]==TypeInt) { t=CODE.TypeInt }
+				else if (INHERIT[ATTR.type]==TypeFloat && e1[ATTR.type]==TypeFloat) { t=CODE.TypeFloat }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " / " e1); t=CODE.TypeError }
+				ATTR#(Bop#("/", INHERIT[ATTR.exp], e1[ATTR.exp]),t)		
 			)
 			(e2=CODE.Mult1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -184,20 +208,11 @@
 <code Cons parse=((CODE.Extra (e1=CODE.Cons1) eval(return(e1) ))) />
 <code Cons1 parse=(("::" (e1=CODE.Extra)
 			eval(
-				holder=TypeNull;
-
-				if(e1==TypeList#TypeInt) { holder=TypeInt }
-				else if(e1==TypeList#TypeFloat) { holder=TypeFloat }
-				else if(e1==TypeError || e1==TypeList#TypeError) { holder=TypeError }
-
-				if(INHERIT==TypeInt && holder==TypeInt) { fin=TypeList#TypeInt }
-				else if(INHERIT==TypeFloat && holder==TypeFloat)  { fin=TypeList#TypeInt }
-				else if(INHERIT==TypeError && holder==TypeError) { fin=TypeError }
-				else if(INHERIT==TypeError) { fin=TypeList#holder }
-				else if(holder==TypeError) { fin=INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " :: " e1); fin = TypeError }
-
-				return(fin)
+				
+				if(INHERIT[ATTR.type]==TypeInt) { t = CODE.TypeInt; }
+	
+				if(e1[ATTR.exp] == "[]") {ATTR#(Listop#("::", INHERIT[ATTR.exp], 0, t), t);}
+				else if(LEN(e1[ATTR.exp]) == 1) {ATTR#(List2op#("::", INHERIT[ATTR.exp], e1[ATTR.exp],t ), t); }
 			)
 			(e2=CODE.Cons1) eval(return(e2)))  
 		| ("" eval(return(INHERIT)))) />
@@ -226,16 +241,18 @@
 			))
 		| ("ref" (e1=CODE.Extra) 
 			eval(
-				if(e1!=TypeError) { return(TypeRef#e1) }
-				else { return(TypeError) }
+				if(e1!=TypeError) { t=CODE.TypeRef#(e1); }
+				else { t=CODE.TypeError; }
+				return(ATTR#(e1[ATTR.exp], t))
 			)) 
 		| ("!" (e1=CODE.Extra) 
 			eval(
-				if(e1==TypeError) { e1=TypeError }
-				else if(e1==TypeRef#TypeInt) { e1=TypeInt }
-				else if(e1==TypeRef#TypeFloat) { e1=TypeFloat }
-				else { print("Line " LINE_NO ": type error: ! "e1); e1=TypeError }
-				return(e1)
+				if(e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if(e1[ATTR.type]==TypeRef#TypeInt) { t=CODE.TypeInt }
+				else if(e1[ATTR.type]==TypeRef#TypeFloat) { t=CODE.TypeFloat }
+				<*else { print("Line " LINE_NO ": type error: ! "e1); t=CODE.TypeError }*>
+				else {t = CODE.TypeError}
+				return(ATTR#(Refop#("!", e1[ATTR.exp]), t))
 			)) 
 		| ("not" (e1=CODE.Extra) 
 			eval(
@@ -246,35 +263,15 @@
 			)) 
 		| ((e1=CODE.Types) eval(return(e1))) ) />
 
-<code Types parse=((INT eval(return(TypeInt))) 
-		|(FLOAT eval(return(TypeFloat))) 
+<code Types parse=(((v=INT) eval(return(CODE.ATTR#(v,TypeInt)))) 
+		|((v=FLOAT) eval(return(CODE.ATTR#(v,TypeFloat)))) 
 		|((id=ID) eval(
 			t=LookupVar(id); 
 			if(t=="") { print("Line " LINE_NO ": type error: undefined variable: " id); return(TypeError) }
 			else { return(t) } 
 			) 
 		)
-		| ("[]" eval(return(TypeList#TypeNull))) 
-		| ("[" (e1=CODE.Comma) "]" eval(return(TypeList#(e1)))) 
-		| ("(" (e1=CODE.Exp) ")")  eval(return(e1)) ) />
-
-
-<**>
-<code If parse=(("if" CODE.Comma "then" CODE.Split "else" CODE.Split) | CODE.Let) />
-<code Let parse=(("let" CODE.Semi "in" CODE.Exp "end") | CODE.While) />
-<code While parse=(("while" CODE.Comma "do" CODE.Split) | CODE.Val) />
-
-<*This is where we add to the symbol table*>
-<code Val parse=(("val" ID":" CODE.Name "=" CODE.Split)) /> 
-
-<code Semi parse=((CODE.Val CODE.Semi1) | "") />
-<code Semi1 parse=((";" CODE.Val CODE.Semi1) | ";" | "") />
-
-<code Name parse=((CODE.TypeID CODE.Name1)) />
-<code Name1 parse=(("ref" CODE.Name1) | ("list" CODE.Name1) | "") />
-
-<code TypeID parse=(("int" eval(return TypeInt)) 
-		|("real" eval(return RealType)) 
-		|("unit" eval(return TypeUnit)) 
-		|("bool" eval(return TypeBool)) ) />
+		| ("[]" eval(return(ATTR#("[]",TypeNull)))) 
+		| ("[" (e1=CODE.Comma) "]" eval(return(ATTR#(e1[ATTR.exp],TypeInt))))
+		| ("(" (e1=CODE.Comma) ")") eval(return(CODE.ATTR#(Perenop#(e1[ATTR.exp]),TypeFloat))) ) />
 
