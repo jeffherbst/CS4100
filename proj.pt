@@ -1,2 +1,7 @@
-<input syntax="proj.code" from="" to=input/>
-<eval print "parsing successful."/>
+<parameter infile message="test.inp"/>
+<define symTable ""/>
+<input from=(infile) syntax="proj.code" to=ast/>
+<eval(print("#include <ml-c.h>"))/>
+<eval(print("int main() \n{"))/>
+<output from=(ast) syntax="proj.code"/>
+<eval(print(" \n}"))/>

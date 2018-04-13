@@ -5,35 +5,60 @@
 <define TOKEN ((":"":") ("[""]") ("<""=") (">""=") (":""=")) />
 <define PARSE CODE.Goal />
 
-<* Part 1, Part 2 uses the first bit *>
-<code Goal parse=LIST(CODE.Exp,"\n") />
+<code Goal pars=(program:LIST(CODE.Exp, "\n")) parse=(program eval(return(Goal#(program)))) />
 
-<code Exp parse=((CODE.Split CODE.Exp1)) />
-<code Exp1 parse=((";" CODE.Exp1) | (CODE.Exp2) | "") />
-<code Exp2 parse=((CODE.Split CODE.Exp1)) />
+
+<code Exp pars=(opd1:CODE.Split, rest:CODE.Exp1) 
+	parse=(opd1 rest eval(return(Exp#(opd1, rest)))) />
+<code Exp1 parse=( (";" CODE.Exp1)
+		| (CODE.Exp2) 
+		| ("")) />
+<code Exp2 pars=(opd1:CODE.Split, rest:CODE.Exp1)
+	parse=(opd1 rest eval(return(Exp2#(opd1, rest)))) />
+
+<**********>
+
+<code Bop pars=(op, opd1, opd2) match=CODE.Comma> @opd1 op opd2@ </code> 
+<code Uop pars=(op, opd1) match=CODE.Comma> @op opd1@ </code>
+<code Pop pars=(opd) match=CODE.Comma> @"("opd")"@ </code>
+<code Lop pars=(op,opd1,opd2,t) match=CODE.Comma> @"newlist<"t">("opd1 ", new list<"t">("opd2", 0))"@ </code>
+<code ATTR pars=(exp,type)/>
+
+<**********>
 
 <code Split parse=((CODE.Comma CODE.Split1) | CODE.If) />
 <code Split1 parse=((":=" CODE.Split) | "") />
 
-<code Comma parse=(CODE.And CODE.Comma1) />
-<code Comma1 parse=(("," CODE.And CODE.Comma1) | "") />
-<code And parse=(CODE.Comp CODE.And1) />
+<code Comma pars=(opd1:CODE.And, rest:CODE.Comma1) 
+	parse=(opd1 rest eval(return(Comma#(opd1,rest)))) />
+<code Comma1 parse=(("," (e1=CODE.And) eval(return(Bop#(",", INHERIT, e1))) (e2=CODE.Comma1) eval(return(e2))) 
+	| "") />
+
+<code And pars=(opd1:CODE.Comp, rest:CODE.And1)
+	parse=(opd1 rest eval(return(And#(opd1, rest)))) />
 <code And1 parse=(("and" CODE.Comp CODE.And1) | ("or" CODE.Comp CODE.And1) | "") />
-<code Comp parse=(CODE.Add CODE.Comp1) />
+
+<code Comp pars=(opd1:CODE.Add, rest:CODE.Comp1)
+	parse=(opd1 rest eval(return(Comp#(opd1, rest)))) />
 <code Comp1 parse=(("<" CODE.Add CODE.Comp1) | (">" CODE.Add CODE.Comp1) | ("=" CODE.Add CODE.Comp1) 
 		| ("<=" CODE.Add CODE.Comp1) | (">=" CODE.ADD CODE.Comp1) | "") />
+
 <code Add parse=(CODE.Mult CODE.Add1) />
 <code Add1 parse=(("+" CODE.Mult CODE.Add1) | ("-" CODE.Mult CODE.Add1) | "") />
+
 <code Mult parse=(CODE.Cons CODE.Mult1) />
 <code Mult1 parse=(("*" CODE.Cons CODE.Mult1) | ("/" CODE.Cons CODE.Mult1) | "") />
-<code Cons parse=(CODE.Extra CODE.Cons1 ) />
-<code Cons1 parse=(("::" CODE.Extra CODE.Cons1)  | "") />
+
+<code Cons pars=(opd1:CODE.Extra, rest:CODE.Cons1)
+	parse=(opd1 rest eval(return(Cons#(opd1, rest)))) />
+<code Cons1 parse=(("::" (e1=CODE.Extra) eval(return(Bop#("::", INHERIT, e1))) (e2=CODE.Cons1) eval(return(e2)))  | "") />
+
 <code Extra parse=(CODE.Extra1 CODE.Type) />
 <code Extra1 parse=(("-" CODE.Extra1) | ("hd" CODE.Extra1) | ("tl" CODE.Extra1) 
 		| ("ref" CODE.Extra1) | ("!" CODE.Extra1) | ("not" CODE.Extra1) | "" ) />
+
 <code Type parse=(INT | FLOAT | ID | "[]" | ("[" CODE.Comma "]") | ("(" CODE.Exp ")")) />
 
-<* Part 2 *>
 
 <code If parse=(("if" CODE.Comma "then" CODE.Split "else" CODE.Split) | CODE.Let) />
 <code Let parse=(("let" CODE.Semi "in" CODE.Exp "end") | CODE.While) />
