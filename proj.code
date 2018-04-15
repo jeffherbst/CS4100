@@ -57,13 +57,15 @@
 
 <code Listop pars=(op, opd1, opd2, t) match=CODE.Comma> @"new list<"t">("opd1","opd2")"@ </code>
 <code List2op pars=(op, opd1, opd2, t) match=CODE.Comma> @"new list<"t">("opd1", new list<"t">("opd2",0))"@  </code>
+<code ListCop pars=(op, opd1, opd2, t) match=CODE.Comma> @"new list<"t">("opd1", "opd2")"@ </code>
 <code List4op pars=(op, opd1, opd2, opd3, opd4, opd5, t) match=CODE.Comma> 
-@"newlist<"t">("opd1", new list<"t">("opd2", new list<"t">("opd3", new list<"t">("opd4", new list<"t">("opd5", 0)))))"@
+@"new list<"t">("opd1", new list<"t">("opd2", new list<"t">("opd3", new list<"t">("opd4", "opd5"))))"@
 </code>
 <code Bop pars=(op, opd1, opd2) match=CODE.Comma> @opd1 op opd2@ </code>
 <code Uop pars=(op, opd) match=CODE.Comma> @op opd@ </code>
 <code Perenop pars=(opd) match=CODE.Comma> @"("opd")"@ </code>
 <code Refop pars=(op, opd) match=CODE.Comma> @opd@ </code>
+<code TLop pars=(op, opd) match=CODE.Comma> @op opd@ </code>
 
 <************************************************>
 
@@ -79,9 +81,11 @@
 <code Comma parse=(CODE.And (e1=CODE.Comma1) eval(return(e1))) />
 <code Comma1 parse=(("," (e1=CODE.And) 
 			eval(
-				if(INHERIT[ATTR.type] == e1) { t = e1; }
+				if(INHERIT[ATTR.type] == e1[ATTR.type]) { t = e1[ATTR.type]; }
 				else { print("Line " LINE_NO ": type error: " INHERIT " , " e1); t=CODE.TypeError; }
-				ATTR#(Bop#(",", INHERIT[ATTR.exp], e1),t)
+				if(e1[ATTR.exp] == 4) {ATTR#(List4op#(",", 1,2,3,4,0,t),t)}
+				else if(e1[ATTR.exp] == 5) {ATTR#(List4op#(",",2,3,4,5,0,t),t)}
+				else {ATTR#(Listop#(",", e1[ATTR.exp], INHERIT[ATTR.exp], t), t)}
 			)
 			(e2=CODE.Comma1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -89,20 +93,22 @@
 <code And parse=((CODE.Comp (e1=CODE.And1) eval(return(e1)))) />
 <code And1 parse=(("and" (e1=CODE.Comp)
 			eval(
-				if(INHERIT==TypeBool && e1==TypeBool) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " and " e1); TypeError }	
+				if(INHERIT[ATTR.type]==TypeBool && e1[ATTR.type]==TypeBool) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " and " e1); t=CODE.TypeError }
+				ATTR#(Bop#("&&", INHERIT[ATTR.exp], e1[ATTR.exp]),t)	
 			) 
 			(e2=CODE.And1) eval(return(e2))) 
 		| ("or" (e1=CODE.Comp) 
 			eval(
-				if(INHERIT==TypeBool && e1==TypeBool) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " or " e1); TypeError }	
+				if(INHERIT[ATTR.type]==TypeBool && e1[ATTR.type]==TypeBool) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " or " e1); t=CODE.TypeError }
+				ATTR#(Bop#("||", INHERIT[ATTR.exp], e1[ATTR.exp]),t)	
 			)
 			(e2=CODE.And1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -110,47 +116,52 @@
 <code Comp parse=((CODE.Add (e1=CODE.Comp1) eval(return(e1)))) />
 <code Comp1 parse=(("<" (e1=CODE.Add) 
 			eval(
-				if (INHERIT==e1 && INHERIT!=TypeError) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " < " e1); TypeError }
+				if (INHERIT[ATTR.type]==e1[ATTR.type] && INHERIT[ATTR.type]!=TypeError) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError[ATTR.type]) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " < " e1); t=CODE.TypeError }
+				ATTR#(Bop#("<", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Comp1) eval(return(e2))) 
 		| (">" (e1=CODE.Add) 
 			eval(
-				if (INHERIT==e1 && INHERIT!=TypeError) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " > " e1); TypeError }
+				if (INHERIT[ATTR.type]==e1[ATTR.type] && INHERIT[ATTR.type]!=TypeError) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " > " e1); t=CODE.TypeError }
+				ATTR#(Bop#(">", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Comp1) eval(return(e2))) 
 		| ("=" (e1=CODE.Add) 
 			eval(
-				if (INHERIT==e1 && INHERIT!=TypeError) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " = " e1); TypeError }
+				if (INHERIT[ATTR.type]==e1 && INHERIT[ATTR.type]!=TypeError) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " = " e1); t=CODE.TypeError }
+				ATTR#(Bop#("=", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Comp1) eval(return(e2))) 
 		| ("<=" (e1=CODE.Add) 
 			eval(
-				if (INHERIT==e1 && INHERIT!=TypeError) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " <= " e1); TypeError }
+				if (INHERIT[ATTR.type]==e1 && INHERIT[ATTR.type]!=TypeError) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " <= " e1); t=CODE.TypeError }
+				ATTR#(Bop#("<=", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Comp1) eval(return(e2))) 
 		| (">=" (e1=CODE.Add) 
 			eval(
-				if (INHERIT==e1 && INHERIT!=TypeError) { TypeBool }
-				else if (INHERIT==TypeError && e1==TypeError) { TypeError }
-				else if (INHERIT==TypeError) { e1 }
-				else if (e1==TypeError) { INHERIT }
-				else { print("Line " LINE_NO ": type error: " INHERIT " >= " e1); TypeError }
+				if (INHERIT[ATTR.type]==e1 && INHERIT[ATTR.type]!=TypeError) { t=CODE.TypeBool }
+				else if (INHERIT[ATTR.type]==TypeError && e1[ATTR.type]==TypeError) { t=CODE.TypeError }
+				else if (INHERIT[ATTR.type]==TypeError) { t=e1[ATTR.type] }
+				else if (e1[ATTR.type]==TypeError) { t=INHERIT[ATTR.type] }
+				else { print("Line " LINE_NO ": type error: " INHERIT " >= " e1); t=CODE.TypeError }
+				ATTR#(Bop#(">=", INHERIT[ATTR.exp], e1[ATTR.exp]),t)
 			)
 			(e2=CODE.Comp1) eval(return(e2))) 
 		| ("" eval(return(INHERIT)))) />
@@ -210,9 +221,11 @@
 			eval(
 				
 				if(INHERIT[ATTR.type]==TypeInt) { t = CODE.TypeInt; }
-	
+				else{t=CODE.TypeInt;}
+				
 				if(e1[ATTR.exp] == "[]") {ATTR#(Listop#("::", INHERIT[ATTR.exp], 0, t), t);}
-				else if(LEN(e1[ATTR.exp]) == 1) {ATTR#(List2op#("::", INHERIT[ATTR.exp], e1[ATTR.exp],t ), t); }
+				else if(e1[ATTR.exp] == 3) {ATTR#(List2op#("[]", INHERIT[ATTR.exp], e1[ATTR.exp],t),t);}
+				else {ATTR#(ListCop#("[]", INHERIT[ATTR.exp], e1[ATTR.exp],t),t);}
 			)
 			(e2=CODE.Cons1) eval(return(e2)))  
 		| ("" eval(return(INHERIT)))) />
@@ -232,12 +245,8 @@
 			)) 
 		| ("tl" (e1=CODE.Extra) 
 			eval(
-				if(e1==TypeInt) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }
-				else if(e1==TypeFloat) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
-				else if(e1==TypeNull) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
-				else if(e1==TypeBool) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
-				else if(e1==TypeRef) { print("Line " LINE_NO ": type error: tl " e1); e1=TypeError }	
-				return(e1)
+				
+				return(ATTR#(TLop#("tl",e1[ATTR.exp]),e1[ATTR.type]))
 			))
 		| ("ref" (e1=CODE.Extra) 
 			eval(
@@ -256,10 +265,10 @@
 			)) 
 		| ("not" (e1=CODE.Extra) 
 			eval(
-				if(e1==TypeBool) { e1=TypeBool }
-				else if(e1==TypeError) { ; }
-				else { print("Line " LINE_NO ": type error: not " e1); e1=TypeError } 
-				return(e1)
+				if(e1[ATTR.type]==TypeBool) { t=CODE.TypeBool }
+				else if(e1[ATTR.type]==TypeError) { t=CODE.TypeError; }
+				else { print("Line " LINE_NO ": type error: not " e1); t=CODE.TypeError } 
+				return(ATTR#(Uop#("!",e1[ATTR.exp]),t))
 			)) 
 		| ((e1=CODE.Types) eval(return(e1))) ) />
 
@@ -272,6 +281,7 @@
 			) 
 		)
 		| ("[]" eval(return(ATTR#("[]",TypeNull)))) 
-		| ("[" (e1=CODE.Comma) "]" eval(return(ATTR#(e1[ATTR.exp],TypeInt))))
-		| ("(" (e1=CODE.Comma) ")") eval(return(CODE.ATTR#(Perenop#(e1[ATTR.exp]),TypeFloat))) ) />
-
+		| ("[" (e1=CODE.Comma) "]" eval(
+			return(ATTR#(e1[ATTR.exp], e1[ATTR.type]))
+			))
+		| ("(" (e1=CODE.Comma) ")") eval(return(CODE.ATTR#(Perenop#(e1[ATTR.exp]), e1[ATTR.type]))) ) />
