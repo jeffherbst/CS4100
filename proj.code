@@ -246,7 +246,7 @@
 		| ("tl" (e1=CODE.Extra) 
 			eval(
 				
-				return(ATTR#(TLop#("tl",e1[ATTR.exp]),e1[ATTR.type]))
+				return(ATTR#(Uop#("tl",e1[ATTR.exp]),e1[ATTR.type]))
 			))
 		| ("ref" (e1=CODE.Extra) 
 			eval(
